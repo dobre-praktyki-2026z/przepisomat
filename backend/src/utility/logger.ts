@@ -8,7 +8,8 @@ const LEVELS: Record<Level, number> = {
 }
 
 const configured = process.env.LOG_LEVEL as Level | undefined
-const threshold = configured && configured in LEVELS ? LEVELS[configured] : LEVELS.info
+const threshold =
+  configured && configured in LEVELS ? LEVELS[configured] : LEVELS.info
 
 function serialize(meta: unknown): string {
   if (meta instanceof Error) {

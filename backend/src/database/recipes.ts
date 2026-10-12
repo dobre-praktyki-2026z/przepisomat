@@ -1,8 +1,55 @@
-import { db, rowToRecipe } from './db.ts'
-import type { Recipe, RecipeInput, RecipeRow } from './types.ts'
+import { randomUUID } from 'node:crypto'
+import type { Recipe, RecipeInput } from '../types.ts'
+import { db } from './connection.ts'
+
+interface RecipeRow {
+  id: string
+  title: string
+  description: string
+  image: string
+  ingredients: string
+  steps: string
+  prep_time: number
+  servings: number
+  favorite: number
+  created_at: string
+  updated_at: string
+}
 
 const COLUMNS =
   'id, title, description, image, ingredients, steps, prep_time, servings, favorite, created_at, updated_at'
+
+function rowToRecipe(row: RecipeRow): Recipe {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    image: row.image,
+    ingredients: JSON.parse(row.ingredients) as string[],
+    steps: JSON.parse(row.steps) as string[],
+    prepTime: row.prep_time,
+    servings: row.servings,
+    favorite: row.favorite === 1,
+  }
+}
+
+function insert(recipe: Recipe, createdAt: string, updatedAt: string): void {
+  db.prepare(
+    `INSERT INTO recipes (${COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    recipe.id,
+    recipe.title,
+    recipe.description,
+    recipe.image,
+    JSON.stringify(recipe.ingredients),
+    JSON.stringify(recipe.steps),
+    recipe.prepTime,
+    recipe.servings,
+    recipe.favorite ? 1 : 0,
+    createdAt,
+    updatedAt,
+  )
+}
 
 export function listRecipes(): Recipe[] {
   const rows = db
@@ -18,48 +65,16 @@ export function getRecipe(id: string): Recipe | null {
   return row ? rowToRecipe(row) : null
 }
 
-function write(recipe: Recipe): void {
-  db.prepare(
-    `INSERT INTO recipes (${COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
-    recipe.id,
-    recipe.title,
-    recipe.description,
-    recipe.image,
-    JSON.stringify(recipe.ingredients),
-    JSON.stringify(recipe.steps),
-    recipe.prepTime,
-    recipe.servings,
-    recipe.favorite ? 1 : 0,
-    recipe.createdAt,
-    recipe.updatedAt,
-  )
-}
-
 export function createRecipe(input: RecipeInput): Recipe {
   const now = new Date().toISOString()
-  const recipe: Recipe = {
-    id: crypto.randomUUID(),
-    ...input,
-    createdAt: now,
-    updatedAt: now,
-  }
-  write(recipe)
+  const recipe: Recipe = { id: randomUUID(), ...input }
+  insert(recipe, now, now)
   return recipe
 }
 
 export function updateRecipe(id: string, input: RecipeInput): Recipe | null {
-  const existing = getRecipe(id)
-  if (!existing) {
+  if (!getRecipe(id)) {
     return null
-  }
-
-  const recipe: Recipe = {
-    ...existing,
-    ...input,
-    id: existing.id,
-    createdAt: existing.createdAt,
-    updatedAt: new Date().toISOString(),
   }
 
   db.prepare(
@@ -68,15 +83,15 @@ export function updateRecipe(id: string, input: RecipeInput): Recipe | null {
       prep_time = ?, servings = ?, favorite = ?, updated_at = ?
     WHERE id = ?`,
   ).run(
-    recipe.title,
-    recipe.description,
-    recipe.image,
-    JSON.stringify(recipe.ingredients),
-    JSON.stringify(recipe.steps),
-    recipe.prepTime,
-    recipe.servings,
-    recipe.favorite ? 1 : 0,
-    recipe.updatedAt,
+    input.title,
+    input.description,
+    input.image,
+    JSON.stringify(input.ingredients),
+    JSON.stringify(input.steps),
+    input.prepTime,
+    input.servings,
+    input.favorite ? 1 : 0,
+    new Date().toISOString(),
     id,
   )
 

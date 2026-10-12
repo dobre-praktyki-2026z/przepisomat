@@ -30,5 +30,3 @@ export const recipeInputSchema = z.object({
 })
 
 export const recipePatchSchema = recipeInputSchema.partial()
-
-export type RecipeInputPayload = z.infer<typeof recipeInputSchema>

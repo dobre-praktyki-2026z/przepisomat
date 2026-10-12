@@ -1,6 +1,8 @@
-import type { RecipeInput } from './types.ts'
+import { randomUUID } from 'node:crypto'
+import type { RecipeInput } from '../types.ts'
+import { db } from './connection.ts'
 
-export const seedRecipes: RecipeInput[] = [
+const seedRecipes: RecipeInput[] = [
   {
     title: 'Spaghetti Aglio e Olio',
     description: 'A quick Italian classic with garlic, olive oil and chili.',
@@ -199,3 +201,35 @@ export const seedRecipes: RecipeInput[] = [
     favorite: false,
   },
 ]
+
+export function seedIfEmpty(): void {
+  const row = db.prepare('SELECT COUNT(*) AS count FROM recipes').get() as unknown as {
+    count: number
+  }
+  if (row.count > 0) {
+    return
+  }
+
+  const insert = db.prepare(`
+    INSERT INTO recipes
+      (id, title, description, image, ingredients, steps, prep_time, servings, favorite, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `)
+  const now = new Date().toISOString()
+
+  for (const recipe of seedRecipes) {
+    insert.run(
+      randomUUID(),
+      recipe.title,
+      recipe.description,
+      recipe.image,
+      JSON.stringify(recipe.ingredients),
+      JSON.stringify(recipe.steps),
+      recipe.prepTime,
+      recipe.servings,
+      recipe.favorite ? 1 : 0,
+      now,
+      now,
+    )
+  }
+}

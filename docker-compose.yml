@@ -1,0 +1,23 @@
+services:
+  backend:
+    build: ./backend
+    environment:
+      PORT: 3000
+      DATABASE_PATH: /app/data/recipes.db
+    volumes:
+      - recipes-data:/app/data
+    expose:
+      - "3000"
+    restart: unless-stopped
+
+  frontend:
+    build: ./front
+    ports:
+      - "8080:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  recipes-data:

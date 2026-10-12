@@ -1,0 +1,35 @@
+name: przepisomat-dev
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    environment:
+      PORT: 3000
+      DATABASE_PATH: /app/data/recipes.db
+    volumes:
+      - ./backend:/app
+      - backend-node-modules:/app/node_modules
+      - recipes-data-dev:/app/data
+    ports:
+      - "3000:3000"
+
+  frontend:
+    build:
+      context: ./front
+      dockerfile: Dockerfile.dev
+    environment:
+      API_PROXY_TARGET: http://backend:3000
+    volumes:
+      - ./front:/app
+      - front-node-modules:/app/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
+volumes:
+  backend-node-modules:
+  front-node-modules:
+  recipes-data-dev:

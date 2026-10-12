@@ -5,6 +5,7 @@ import express, {
   type Response,
 } from 'express'
 import { seedIfEmpty } from './db.ts'
+import { logger } from './logger.ts'
 import * as repo from './repository.ts'
 import { recipeInputSchema, recipePatchSchema } from './schema.ts'
 
@@ -12,6 +13,27 @@ seedIfEmpty()
 
 const app: Express = express()
 app.use(express.json({ limit: '12mb' }))
+
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const start = performance.now()
+  res.on('finish', () => {
+    const durationMs = Math.round(performance.now() - start)
+    const meta = {
+      method: req.method,
+      path: req.originalUrl,
+      status: res.statusCode,
+      durationMs,
+    }
+    if (res.statusCode >= 500) {
+      logger.error('request', meta)
+    } else if (res.statusCode >= 400) {
+      logger.warn('request', meta)
+    } else {
+      logger.info('request', meta)
+    }
+  })
+  next()
+})
 
 app.get('/api/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok' })
@@ -81,6 +103,7 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     typeof err === 'object' && err !== null && 'status' in err
       ? Number((err as { status?: number }).status) || 500
       : 500
+  logger.error('unhandled error', err)
   res
     .status(status)
     .json({ error: err instanceof Error ? err.message : 'Internal server error' })

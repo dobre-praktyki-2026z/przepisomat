@@ -17,6 +17,8 @@ import {
 } from '@mui/material'
 import {
     Close,
+    DeleteOutlined,
+    Edit,
     Favorite,
     FavoriteBorder,
     People,
@@ -24,19 +26,22 @@ import {
     Schedule,
 } from '@mui/icons-material'
 import type { Recipe } from '../types'
+import { recipeImageSrc } from '../utils/recipes'
 
 interface RecipeDialogProps {
     recipe: Recipe | null
-    isFavorite: boolean
     onClose: () => void
-    onToggleFavorite: (id: string) => void
+    onToggleFavorite: (recipe: Recipe) => void
+    onEdit: (recipe: Recipe) => void
+    onDelete: (recipe: Recipe) => void
 }
 
 export default function RecipeDialog({
     recipe,
-    isFavorite,
     onClose,
     onToggleFavorite,
+    onEdit,
+    onDelete,
 }: RecipeDialogProps) {
     const theme = useTheme()
     const fullScreen = useMediaQuery(theme.breakpoints.down('sm'))
@@ -51,20 +56,30 @@ export default function RecipeDialog({
         >
             {recipe && (
                 <>
-                    <DialogTitle sx={{ pr: 7 }}>
+                    <DialogTitle sx={{ pr: 16 }}>
                         {recipe.title}
-                        <IconButton
-                            aria-label="Close"
-                            onClick={onClose}
-                            sx={{ position: 'absolute', right: 8, top: 8 }}
-                        >
-                            <Close />
-                        </IconButton>
+                        <Box sx={{ position: 'absolute', right: 8, top: 8 }}>
+                            <IconButton
+                                aria-label="Edit recipe"
+                                onClick={() => onEdit(recipe)}
+                            >
+                                <Edit />
+                            </IconButton>
+                            <IconButton
+                                aria-label="Delete recipe"
+                                onClick={() => onDelete(recipe)}
+                            >
+                                <DeleteOutlined />
+                            </IconButton>
+                            <IconButton aria-label="Close" onClick={onClose}>
+                                <Close />
+                            </IconButton>
+                        </Box>
                     </DialogTitle>
                     <DialogContent dividers>
                         <Box
                             component="img"
-                            src={recipe.image}
+                            src={recipeImageSrc(recipe)}
                             alt={recipe.title}
                             sx={{
                                 width: '100%',
@@ -81,11 +96,11 @@ export default function RecipeDialog({
                             <Chip icon={<Schedule />} label={`${recipe.prepTime} min`} />
                             <Chip icon={<People />} label={`${recipe.servings} servings`} />
                             <Chip
-                                icon={isFavorite ? <Favorite /> : <FavoriteBorder />}
-                                label={isFavorite ? 'Favorite' : 'Not favorite'}
-                                color={isFavorite ? 'secondary' : 'default'}
+                                icon={recipe.favorite ? <Favorite /> : <FavoriteBorder />}
+                                label={recipe.favorite ? 'Favorite' : 'Not favorite'}
+                                color={recipe.favorite ? 'secondary' : 'default'}
                                 variant="outlined"
-                                onClick={() => onToggleFavorite(recipe.id)}
+                                onClick={() => onToggleFavorite(recipe)}
                             />
                         </Stack>
 

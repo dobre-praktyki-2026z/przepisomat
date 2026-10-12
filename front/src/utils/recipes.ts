@@ -1,4 +1,5 @@
 import type { Recipe } from '../types'
+import { recipeImage } from './placeholder'
 
 export const PAGE_SIZE_OPTIONS = [3, 6, 9, 12]
 export const DEFAULT_PAGE_SIZE = 6
@@ -55,6 +56,19 @@ function sortRecipes(
         }
         return original.indexOf(b) - original.indexOf(a)
     })
+}
+
+export function recipeImageSrc(
+    recipe: Pick<Recipe, 'id' | 'title' | 'image'>,
+): string {
+    if (recipe.image) {
+        return recipe.image
+    }
+    let hash = 0
+    for (let i = 0; i < recipe.id.length; i += 1) {
+        hash = (hash * 31 + recipe.id.charCodeAt(i)) >>> 0
+    }
+    return recipeImage(recipe.title, hash)
 }
 
 export interface Paginated<T> {

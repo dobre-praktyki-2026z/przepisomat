@@ -14,8 +14,7 @@ import {
     Typography,
 } from '@mui/material'
 import { Close, Delete, UploadFile } from '@mui/icons-material'
-import type { Recipe } from '../types'
-import { recipeImage } from '../utils/placeholder'
+import type { Recipe, RecipeInput } from '../types'
 
 const formSchema = z.object({
     title: z.string().trim().min(1, 'Title is required').max(80, 'Keep it under 80 characters'),
@@ -72,20 +71,35 @@ type FormErrors = Partial<Record<keyof FormState, string>>
 
 interface RecipeFormProps {
     open: boolean
+    recipe?: Recipe | null
     onClose: () => void
-    onAdd: (recipe: Recipe) => void
+    onSave: (input: RecipeInput) => void
 }
 
-export default function RecipeForm({ open, onClose, onAdd }: RecipeFormProps) {
-    const [form, setForm] = useState<FormState>(emptyForm)
+function toFormState(recipe: Recipe): FormState {
+    return {
+        title: recipe.title,
+        description: recipe.description,
+        image: recipe.image,
+        prepTime: String(recipe.prepTime),
+        servings: String(recipe.servings),
+        ingredients: recipe.ingredients.join('\n'),
+        steps: recipe.steps.join('\n'),
+    }
+}
+
+export default function RecipeForm({
+    open,
+    recipe,
+    onClose,
+    onSave,
+}: RecipeFormProps) {
+    const [form, setForm] = useState<FormState>(() =>
+        recipe ? toFormState(recipe) : emptyForm,
+    )
     const [errors, setErrors] = useState<FormErrors>({})
     const fileInputRef = useRef<HTMLInputElement>(null)
-
-    const handleClose = () => {
-        setForm(emptyForm)
-        setErrors({})
-        onClose()
-    }
+    const isEdit = Boolean(recipe)
 
     const handleFile = (event: ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0]
@@ -129,11 +143,10 @@ export default function RecipeForm({ open, onClose, onAdd }: RecipeFormProps) {
         }
 
         const data = result.data
-        const recipe: Recipe = {
-            id: crypto.randomUUID(),
+        const input: RecipeInput = {
             title: data.title,
             description: data.description,
-            image: data.image || recipeImage(data.title, Date.now()),
+            image: data.image,
             prepTime: data.prepTime,
             servings: data.servings,
             ingredients: data.ingredients
@@ -144,20 +157,21 @@ export default function RecipeForm({ open, onClose, onAdd }: RecipeFormProps) {
                 .split('\n')
                 .map((item) => item.trim())
                 .filter(Boolean),
+            favorite: recipe?.favorite ?? false,
         }
 
-        onAdd(recipe)
-        handleClose()
+        onSave(input)
+        onClose()
     }
 
     return (
-        <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+        <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
             <Box component="form" onSubmit={handleSubmit} noValidate>
                 <DialogTitle sx={{ pr: 7 }}>
-                    Add a recipe
+                    {isEdit ? 'Edit recipe' : 'Add a recipe'}
                     <IconButton
                         aria-label="Close"
-                        onClick={handleClose}
+                        onClick={onClose}
                         sx={{ position: 'absolute', right: 8, top: 8 }}
                     >
                         <Close />
@@ -297,9 +311,9 @@ export default function RecipeForm({ open, onClose, onAdd }: RecipeFormProps) {
                     />
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleClose}>Cancel</Button>
+                    <Button onClick={onClose}>Cancel</Button>
                     <Button type="submit" variant="contained">
-                        Add recipe
+                        {isEdit ? 'Save changes' : 'Add recipe'}
                     </Button>
                 </DialogActions>
             </Box>

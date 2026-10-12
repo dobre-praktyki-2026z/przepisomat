@@ -9,21 +9,30 @@ import {
     IconButton,
     Typography,
 } from '@mui/material'
-import { Favorite, FavoriteBorder, Schedule } from '@mui/icons-material'
+import {
+    DeleteOutlined,
+    Edit,
+    Favorite,
+    FavoriteBorder,
+    Schedule,
+} from '@mui/icons-material'
 import type { Recipe } from '../types'
+import { recipeImageSrc } from '../utils/recipes'
 
 interface RecipeCardProps {
     recipe: Recipe
-    isFavorite: boolean
     onOpen: (recipe: Recipe) => void
-    onToggleFavorite: (id: string) => void
+    onToggleFavorite: (recipe: Recipe) => void
+    onEdit: (recipe: Recipe) => void
+    onDelete: (recipe: Recipe) => void
 }
 
 export default function RecipeCard({
     recipe,
-    isFavorite,
     onOpen,
     onToggleFavorite,
+    onEdit,
+    onDelete,
 }: RecipeCardProps) {
     return (
         <Card
@@ -51,7 +60,7 @@ export default function RecipeCard({
             >
                 <CardMedia
                     component="img"
-                    image={recipe.image}
+                    image={recipeImageSrc(recipe)}
                     alt={recipe.title}
                     sx={{
                         width: '100%',
@@ -103,13 +112,27 @@ export default function RecipeCard({
                 />
                 <Box>
                     <IconButton
-                        aria-label={
-                            isFavorite ? 'Remove from favorites' : 'Add to favorites'
-                        }
-                        color={isFavorite ? 'secondary' : 'default'}
-                        onClick={() => onToggleFavorite(recipe.id)}
+                        aria-label="Edit recipe"
+                        onClick={() => onEdit(recipe)}
                     >
-                        {isFavorite ? <Favorite /> : <FavoriteBorder />}
+                        <Edit fontSize="small" />
+                    </IconButton>
+                    <IconButton
+                        aria-label="Delete recipe"
+                        onClick={() => onDelete(recipe)}
+                    >
+                        <DeleteOutlined fontSize="small" />
+                    </IconButton>
+                    <IconButton
+                        aria-label={
+                            recipe.favorite
+                                ? 'Remove from favorites'
+                                : 'Add to favorites'
+                        }
+                        color={recipe.favorite ? 'secondary' : 'default'}
+                        onClick={() => onToggleFavorite(recipe)}
+                    >
+                        {recipe.favorite ? <Favorite /> : <FavoriteBorder />}
                     </IconButton>
                 </Box>
             </CardActions>

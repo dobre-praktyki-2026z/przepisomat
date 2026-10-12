@@ -4,8 +4,14 @@ import {
     AppBar,
     Box,
     Button,
+    CircularProgress,
     Container,
     CssBaseline,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogContentText,
+    DialogTitle,
     FormControl,
     FormControlLabel,
     Grid,
@@ -34,7 +40,7 @@ import {
 import RecipeCard from './components/RecipeCard'
 import RecipeDialog from './components/RecipeDialog'
 import RecipeForm from './components/RecipeForm'
-import { seedRecipes } from './data/recipes'
+import { useRecipeMutations, useRecipes } from './hooks/useRecipes'
 import { createAppTheme } from './theme'
 import {
     DEFAULT_PAGE_SIZE,
@@ -44,31 +50,40 @@ import {
     paginate,
     type SortOption,
 } from './utils/recipes'
-import type { Recipe } from './types'
+import type { Recipe, RecipeInput } from './types'
 
 export default function App() {
     const [mode, setMode] = useState<PaletteMode>('light')
-    const [recipes, setRecipes] = useState<Recipe[]>(seedRecipes)
-    const [favorites, setFavorites] = useState<string[]>([])
     const [search, setSearch] = useState('')
     const [favoritesOnly, setFavoritesOnly] = useState(false)
     const [sort, setSort] = useState<SortOption>('recent')
     const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
     const [page, setPage] = useState(1)
-    const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null)
+    const [selectedId, setSelectedId] = useState<string | null>(null)
     const [formOpen, setFormOpen] = useState(false)
+    const [formSession, setFormSession] = useState(0)
+    const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null)
+    const [deleteTarget, setDeleteTarget] = useState<Recipe | null>(null)
+
+    const { data: recipes = [], isLoading, isError, error } = useRecipes()
+    const { create, update, remove, setFavorite } = useRecipeMutations()
 
     const theme = useMemo(() => createAppTheme(mode), [mode])
+
+    const favoriteIds = useMemo(
+        () => recipes.filter((recipe) => recipe.favorite).map((recipe) => recipe.id),
+        [recipes],
+    )
 
     const filtered = useMemo(
         () =>
             filterRecipes(recipes, {
                 search,
                 favoritesOnly,
-                favorites,
+                favorites: favoriteIds,
                 sort,
             }),
-        [recipes, search, favoritesOnly, favorites, sort],
+        [recipes, search, favoritesOnly, favoriteIds, sort],
     )
 
     const { items: pageRecipes, pageCount, currentPage } = paginate(
@@ -77,18 +92,50 @@ export default function App() {
         pageSize,
     )
 
-    const toggleFavorite = (id: string) => {
-        setFavorites((prev) =>
-            prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
-        )
-    }
+    const selectedRecipe =
+        recipes.find((recipe) => recipe.id === selectedId) ?? null
 
-    const handleAdd = (recipe: Recipe) => {
-        setRecipes((prev) => [recipe, ...prev])
-        setPage(1)
-    }
+    const mutationError = create.error ?? update.error ?? remove.error ?? setFavorite.error
 
     const resetPage = () => setPage(1)
+
+    const openAdd = () => {
+        setEditingRecipe(null)
+        setFormSession((prev) => prev + 1)
+        setFormOpen(true)
+    }
+
+    const openEdit = (recipe: Recipe) => {
+        setSelectedId(null)
+        setEditingRecipe(recipe)
+        setFormSession((prev) => prev + 1)
+        setFormOpen(true)
+    }
+
+    const openDelete = (recipe: Recipe) => {
+        setSelectedId(null)
+        setDeleteTarget(recipe)
+    }
+
+    const handleSave = (input: RecipeInput) => {
+        if (editingRecipe) {
+            update.mutate({ id: editingRecipe.id, input })
+        } else {
+            create.mutate(input)
+            resetPage()
+        }
+    }
+
+    const handleToggleFavorite = (recipe: Recipe) => {
+        setFavorite.mutate({ id: recipe.id, favorite: !recipe.favorite })
+    }
+
+    const confirmDelete = () => {
+        if (deleteTarget) {
+            remove.mutate(deleteTarget.id)
+        }
+        setDeleteTarget(null)
+    }
 
     return (
         <ThemeProvider theme={theme}>
@@ -123,7 +170,7 @@ export default function App() {
                         <Button
                             variant="contained"
                             startIcon={<Add />}
-                            onClick={() => setFormOpen(true)}
+                            onClick={openAdd}
                         >
                             Add recipe
                         </Button>
@@ -206,7 +253,21 @@ export default function App() {
                         </FormControl>
                     </Stack>
 
-                    {pageRecipes.length === 0 ? (
+                    {mutationError && (
+                        <Alert severity="error" sx={{ mb: 3 }}>
+                            {mutationError.message}
+                        </Alert>
+                    )}
+
+                    {isLoading ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+                            <CircularProgress />
+                        </Box>
+                    ) : isError ? (
+                        <Alert severity="error">
+                            Could not load recipes: {error.message}
+                        </Alert>
+                    ) : pageRecipes.length === 0 ? (
                         <Alert severity="info">
                             No recipes match your filters yet. Try adjusting the
                             search.
@@ -220,9 +281,10 @@ export default function App() {
                                 >
                                     <RecipeCard
                                         recipe={recipe}
-                                        isFavorite={favorites.includes(recipe.id)}
-                                        onOpen={setSelectedRecipe}
-                                        onToggleFavorite={toggleFavorite}
+                                        onOpen={(item) => setSelectedId(item.id)}
+                                        onToggleFavorite={handleToggleFavorite}
+                                        onEdit={openEdit}
+                                        onDelete={openDelete}
                                     />
                                 </Grid>
                             ))}
@@ -256,20 +318,43 @@ export default function App() {
 
                 <RecipeDialog
                     recipe={selectedRecipe}
-                    isFavorite={
-                        selectedRecipe
-                            ? favorites.includes(selectedRecipe.id)
-                            : false
-                    }
-                    onClose={() => setSelectedRecipe(null)}
-                    onToggleFavorite={toggleFavorite}
+                    onClose={() => setSelectedId(null)}
+                    onToggleFavorite={handleToggleFavorite}
+                    onEdit={openEdit}
+                    onDelete={openDelete}
                 />
 
                 <RecipeForm
+                    key={formSession}
                     open={formOpen}
+                    recipe={editingRecipe}
                     onClose={() => setFormOpen(false)}
-                    onAdd={handleAdd}
+                    onSave={handleSave}
                 />
+
+                <Dialog
+                    open={deleteTarget !== null}
+                    onClose={() => setDeleteTarget(null)}
+                >
+                    <DialogTitle>Delete recipe</DialogTitle>
+                    <DialogContent>
+                        <DialogContentText>
+                            Delete "{deleteTarget?.title}"? This cannot be undone.
+                        </DialogContentText>
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={() => setDeleteTarget(null)}>
+                            Cancel
+                        </Button>
+                        <Button
+                            color="error"
+                            variant="contained"
+                            onClick={confirmDelete}
+                        >
+                            Delete
+                        </Button>
+                    </DialogActions>
+                </Dialog>
             </Box>
         </ThemeProvider>
     )

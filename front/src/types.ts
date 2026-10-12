@@ -7,4 +7,7 @@ export interface Recipe {
   steps: string[]
   prepTime: number
   servings: number
+  favorite: boolean
 }
+
+export type RecipeInput = Omit<Recipe, 'id'>
